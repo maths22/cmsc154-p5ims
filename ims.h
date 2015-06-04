@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <arpa/inet.h> /* inet_ntop */
 #include <sys/types.h> /* getaddrinfo */
@@ -22,8 +23,9 @@
 #include "imp.h"  /* the protocol library */
 
 #include "const.h"
-#include "globals.h"
 #include "udbase.h"
+#include "globals.h"
+#include "connection.h"
 #include "handler.h"
 
 

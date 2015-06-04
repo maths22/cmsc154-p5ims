@@ -18,5 +18,8 @@ const char *udbaseFilename;
  */
 int quitting;
 
+db_t *database;
+pthread_mutex_t db_lock;
+
 #endif	/* GLOBALS_H */
 

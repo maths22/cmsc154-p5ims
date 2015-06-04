@@ -5,5 +5,7 @@
    documenting how starting the server failed */
 #define FAIL "SERVER_INIT_FAIL"
 
+#define DB_INIT_SIZE 8
+
 #endif	/* CONST_H */
 
