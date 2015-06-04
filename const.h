@@ -7,5 +7,9 @@
 
 #define DB_INIT_SIZE 8
 
+#define BACKLOG 20
+
+#define BUFF_SIZE 2048
+
 #endif	/* CONST_H */
 

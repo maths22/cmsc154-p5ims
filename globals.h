@@ -18,6 +18,8 @@ const char *udbaseFilename;
  */
 int quitting;
 
+int listenfd;
+
 db_t *database;
 pthread_mutex_t db_lock;
 

@@ -91,6 +91,9 @@ int main(int argc, char *argv[]) {
     saveInterval = intrv;
     verbose = verb;
     listenPort = port;
+
+    pthread_mutex_init(&db_lock, 0);
+
     impEm *iem = impEmNew();
     if (serverStart(iem)) {
         fprintf(stderr, "%s: %s server failed to start:\n", me, FAIL);
@@ -100,14 +103,27 @@ int main(int argc, char *argv[]) {
     }
     impEmFree(iem);
 
+    pthread_t update_tid;
+    pthread_create(&update_tid, NULL, update_thread, NULL);
+    pthread_detach(update_tid);
+    pthread_t quit_tid;
+    pthread_create(&quit_tid, NULL, quit_thread, NULL);
+    pthread_detach(quit_tid);
 
-    /* YOUR CODE HERE.  Probably something related to calling
-       accept() on the listening file descriptor. */
+    while (true) {
+        int connfd = accept(listenfd, NULL, NULL);
+        if (connfd == -1) {
+            //TODO conn error?
+            perror("accept");
+            continue;
+        }
 
-    /* Calling this here from main allows the starting server to respond
-       correctly to "quit" on stdin, but you need to decide if this is actually
-       the right place to call this function */
-    readQuitFromStdin();
+        pthread_t child;
+        int *arg = malloc(sizeof (int));
+        *arg = connfd;
+        pthread_create(&child, NULL, connection_thread, (void *) arg);
+        pthread_detach(child);
+    }
 
 
     exit(0);

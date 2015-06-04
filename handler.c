@@ -52,14 +52,40 @@ int serverStart(impEm *iem) {
         return 1;
     }
 
-    /* YOUR CODE HERE:
-       -- create listening file descriptor for listenPort and listen() on it
-       See http://beej.us/guide/bgnet/output/html/multipage/syscalls.html
-       and May 18 2015 class slides
-       -- start a thread to periodically save database
-       -- figure out whether looking for "quit" on stdin should be done
-       in a thread that is started here, or in main.c
-     */
+    
+    //selections borrowed from textbook source
+    int optval = 1;
+    struct sockaddr_in serveraddr;
+
+    /* Create a socket descriptor */
+    if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        //TODO: error msg
+        return 1;
+    }
+
+    /* Eliminates "Address already in use" error from bind */
+    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
+            (const void *) &optval, sizeof (int)) < 0) {
+        //TODO: error msg
+        return 1;
+    }
+
+    /* Listenfd will be an endpoint for all requests to port
+       on any IP address for this host */
+    bzero((char *) &serveraddr, sizeof (serveraddr));
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serveraddr.sin_port = htons((unsigned short) listenPort);
+    if (bind(listenfd, (struct sockaddr *) &serveraddr, sizeof (serveraddr)) < 0) {
+        //TODO: error msg
+        return 1;
+    }
+
+    /* Make it a listening socket ready to accept connection requests */
+    if (listen(listenfd, BACKLOG) < 0) {
+        //TODO: error msg
+        return 1;
+    }
 
 
     if (verbose) {
@@ -90,3 +116,8 @@ void serverStop(void) {
     return;
 }
 
+void *quit_thread(void *arg) {
+    readQuitFromStdin();
+    //TODO: exit on quit
+    return NULL;
+}

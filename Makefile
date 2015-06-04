@@ -5,9 +5,7 @@ CFLAGS= -std=gnu99 -Wall -Werror -g -O1
 IPATH= -Iimp
 LPATH= -Limp
 
-# As you add more source files to your project, list them here
-# Source file foo.c should be listed here as "foo.o"
-OBJS= main.o defaults.o udbase.o handler.o
+OBJS= main.o defaults.o udbase.o handler.o connection.o user.o
 
 all: ims
 

@@ -54,7 +54,7 @@ void addFriend(dbUser_t *user, dbUser_t *friend, impFriend_t status) {
     newfriend->status = status;
     //TODO: error check
 
-    friend->friends[user->numFriends] = newfriend;
+    user->friends[user->numFriends] = newfriend;
     user->numFriends++;
     pthread_rwlock_unlock(&database->lock);
 }
@@ -197,7 +197,6 @@ int udbaseRead(impEm *iem) {
     }
 
     pthread_mutex_unlock(&db_lock);
-
     fclose(file);
     return 0;
 }
