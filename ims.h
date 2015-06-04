@@ -1,7 +1,7 @@
 /*
-** cs154-2015 Project 5 ("p5ims") Instant Message Server
-** ims.h: header file
-*/
+ ** cs154-2015 Project 5 ("p5ims") Instant Message Server
+ ** ims.h: header file
+ */
 
 #ifndef IMS_INCLUDED
 #define IMS_INCLUDED
@@ -36,13 +36,13 @@ from every other source file */
 /* globals.c: global variables */
 /* this information is stored in globals because it could be awkward to create
    a container for it to be passed to all functions that need to know it */
-extern int verbose;      /* how much verbose debugging messages to print
+extern int verbose; /* how much verbose debugging messages to print
                             during operation */
 extern int saveInterval; /* interval, in seconds, with which to save
                             user database */
-extern unsigned short listenPort;  /* port to listen on */
+extern unsigned short listenPort; /* port to listen on */
 extern const char *udbaseFilename; /* filename for user database */
-extern int quitting;     /* flag to say (by being non-zero) that its time
+extern int quitting; /* flag to say (by being non-zero) that its time
 			    to shut things down and quit cleanly. This is
 			    set by readQuitFromStdin() */
 /* add more globals as you see fit */

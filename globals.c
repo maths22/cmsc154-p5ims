@@ -1,7 +1,7 @@
 /*
-** cs154-2015 Project 5 ("p5ims") Instant Message Server
-** misc.c: miscellaneous things
-*/
+ ** cs154-2015 Project 5 ("p5ims") Instant Message Server
+ ** misc.c: miscellaneous things
+ */
 
 #include "ims.h"
 
