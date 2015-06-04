@@ -5,7 +5,7 @@ CFLAGS= -std=gnu99 -Wall -Werror -g -O1
 IPATH= -Iimp
 LPATH= -Limp
 
-OBJS= main.o defaults.o udbase.o handler.o connection.o user.o
+OBJS= main.o defaults.o udbase.o handler.o connection.o user.o friends.o im.o
 
 all: ims
 

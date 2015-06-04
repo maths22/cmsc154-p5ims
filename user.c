@@ -14,7 +14,7 @@ void processLogin(connection_t *conn, char *username) {
         conn->user = user;
         setUserStatus(conn->user, IMP_ACTIVE_YES, conn);
         sendAck(conn, IMP_OP_LOGIN, conn->user->name, IMP_END);
-        //notifyFriends(conn, true, true);
+        notifyFriends(conn, true, true);
     }
 }
 
@@ -23,9 +23,9 @@ void processLogout(connection_t *conn) {
         sendError(conn, IMP_ERROR_CLIENT_NOT_BOUND, IMP_END);
     } else {
         setUserStatus(conn->user, IMP_ACTIVE_NOT, NULL);
-        conn->user = NULL;
         sendAck(conn, IMP_OP_LOGOUT, IMP_END);
-        //notifyFriends(data, false, true);
+        notifyFriends(conn, false, true);
+        conn->user = NULL;
     }
 }
 

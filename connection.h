@@ -25,5 +25,14 @@ void processRegister(connection_t *conn, char *username);
 void processLogin(connection_t *conn, char *username);
 void processLogout(connection_t *conn);
 
-#endif	/* CONNECTION_H */
+//friends.c
+void processRequest(connection_t *data, char *username);
+void processRemove(connection_t *data, char *username);
+void processList(connection_t *data);
+void notifyFriends(connection_t *data, bool self, bool others);
 
+//im.c
+void processIM(connection_t *data, char *username, char *im);
+
+
+#endif	/* CONNECTION_H */

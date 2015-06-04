@@ -37,6 +37,9 @@ dbFriend_t *lookupFriend(dbUser_t *user, dbUser_t *friend);
 void setFriendStatus(dbFriend_t *friend, impFriend_t status);
 void setUserStatus(dbUser_t *user, impActive_t active, connection_t *thread);
 
+bool isFriend(dbUser_t *a, dbUser_t *b);
+bool isActive(dbUser_t *a);
+
 
 //Database file manipulation
 int udbaseRead(impEm *iem);

@@ -20,6 +20,7 @@ void addUser(char *username) {
     pthread_rwlock_wrlock(&database->lock);
     if (database->numUsers + 1 > database->_memsize) {
         database->_memsize *= 2;
+        //TODO: update friend relationships
         database->users = realloc(database->users, database->_memsize * sizeof (dbUser_t*));
         //TODO: error check
     }
@@ -70,8 +71,7 @@ void removeFriend(dbUser_t *user, dbUser_t *friend) {
             break;
         }
     }
-
-    free(user->friends[i]);
+    
     memmove(&user->friends[i], &user->friends[i + 1], sizeof (dbFriend_t*) * (user->numFriends - i));
     user->numFriends--;
 
@@ -113,6 +113,25 @@ void setUserStatus(dbUser_t *user, impActive_t active, connection_t *thread) {
     user->active = active;
     user->thread = thread;
     pthread_rwlock_unlock(&database->lock);
+}
+
+bool isFriend(dbUser_t *a, dbUser_t *b) {
+    bool ret = false;
+    dbFriend_t *friend = lookupFriend(a, b);
+    pthread_rwlock_rdlock(&database->lock);
+    if (friend != NULL && friend->status == IMP_FRIEND_YES) {
+        ret = true;
+    }
+    pthread_rwlock_unlock(&database->lock);
+    return ret;
+}
+
+bool isActive(dbUser_t *a) {
+    bool ret;
+    pthread_rwlock_rdlock(&database->lock);
+    ret = (a->active == IMP_ACTIVE_YES);
+    pthread_rwlock_unlock(&database->lock);
+    return ret;
 }
 
 /* your in-memory representation of user database can be pointed to by some

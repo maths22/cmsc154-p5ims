@@ -42,6 +42,7 @@ void *connection_thread(void *connfd_p) {
             if (cnt < 0) {
                 sprintf(where, "%s: recv() failed (readBytes=%d)", me, (int) cnt);
                 perror(where);
+                processLogout(data);
                 break;
             }
             if (!cnt) {
@@ -50,7 +51,7 @@ void *connection_thread(void *connfd_p) {
                     sprintf(where, "%s: close() after server disconnect", me);
                     perror(where);
                 }
-                connfd = -1;
+                processLogout(data);
                 break;
             }
             //TODO: split protocol strings
@@ -118,6 +119,18 @@ void _handleOpMsg(connection_t *conn, impMsgOp *msg) {
             break;
         case IMP_OP_REGISTER:
             processRegister(conn, msg->userName);
+            break;
+        case IMP_OP_FRIEND_REQUEST:
+            processRequest(conn, msg->userName);
+            break;
+        case IMP_OP_FRIEND_REMOVE:
+            processRemove(conn, msg->userName);
+            break;
+        case IMP_OP_FRIEND_LIST:
+            processList(conn);
+            break;
+        case IMP_OP_IM:
+            processIM(conn, msg->userName, msg->IM);
             break;
         default:
             sendError(conn, IMP_ERROR_BAD_COMMAND, IMP_END);
