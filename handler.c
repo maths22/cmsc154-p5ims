@@ -117,6 +117,7 @@ void serverStop(void) {
 }
 
 void *quit_thread(void *arg) {
+    UNUSED(arg);
     readQuitFromStdin();
     //TODO: exit on quit
     return NULL;

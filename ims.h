@@ -28,5 +28,6 @@
 #include "connection.h"
 #include "handler.h"
 
+#define UNUSED(x) (void)(x)
 
 #endif /* IMS_INCLUDED */

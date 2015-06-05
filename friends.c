@@ -61,9 +61,8 @@ void processList(connection_t *conn) {
 }
 
 void notifyFriends(connection_t *conn, bool self, bool others) {
-    int i;
     pthread_rwlock_rdlock(&database->lock);
-    for (i = 0; i < conn->user->numFriends; i++) {
+    for (size_t i = 0; i < conn->user->numFriends; i++) {
         dbFriend_t *friend = conn->user->friends[i];
         impActive_t active;
         if (friend->status == IMP_FRIEND_YES) {

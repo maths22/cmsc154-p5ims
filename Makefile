@@ -1,7 +1,7 @@
 # cs154-2015 Project 5 ("p5ims") Instant Message Server
 
 CC=gcc
-CFLAGS= -std=gnu99 -Wall -Werror -g -O1
+CFLAGS= -std=gnu99 -Wall -Werror -Wpedantic -Wextra -g -O1
 IPATH= -Iimp
 LPATH= -Limp
 

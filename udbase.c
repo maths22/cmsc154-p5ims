@@ -65,7 +65,7 @@ void addFriend(dbUser_t *user, dbUser_t *friend, impFriend_t status) {
 void removeFriend(dbUser_t *user, dbUser_t *friend) {
     pthread_rwlock_wrlock(&database->lock);
 
-    int i;
+    size_t i;
     for (i = 0; i < user->numFriends; i++) {
         if (user->friends[i]->friend == friend) {
             break;
@@ -81,7 +81,7 @@ void removeFriend(dbUser_t *user, dbUser_t *friend) {
 dbUser_t *lookupUser(char *username) {
     dbUser_t *ret = NULL;
     pthread_rwlock_rdlock(&database->lock);
-    for (int i = 0; i < database->numUsers; i++) {
+    for (size_t i = 0; i < database->numUsers; i++) {
         if (strcmp(database->users[i]->name, username) == 0) {
             ret = database->users[i];
         }
@@ -93,7 +93,7 @@ dbUser_t *lookupUser(char *username) {
 dbFriend_t *lookupFriend(dbUser_t *user, dbUser_t *friend) {
     dbFriend_t *ret = NULL;
     pthread_rwlock_rdlock(&database->lock);
-    for (int i = 0; i < user->numFriends; i++) {
+    for (size_t i = 0; i < user->numFriends; i++) {
         if (user->friends[i]->friend == friend) {
             ret = user->friends[i];
         }
@@ -238,10 +238,10 @@ int udbaseWrite(impEm *iem) {
     }
 
     fprintf(file, "%d users:\n", (int) database->numUsers);
-    for (int i = 0; i < database->numUsers; i++) {
+    for (size_t i = 0; i < database->numUsers; i++) {
         dbUser_t *user = database->users[i];
         fprintf(file, "%s\n", user->name);
-        for (int j = 0; j < user->numFriends; j++) {
+        for (size_t j = 0; j < user->numFriends; j++) {
             dbFriend_t *friend = user->friends[j];
             fprintf(file, "- %s", friend->friend->name);
             if (friend->status == IMP_FRIEND_REQUESTED) {
@@ -260,7 +260,8 @@ int udbaseWrite(impEm *iem) {
     return 0;
 }
 
-void *update_thread(void *arg){
+void *update_thread(void *arg) {
+    UNUSED(arg);
     while (true) {
         udbaseWrite(NULL);
         sleep(saveInterval);

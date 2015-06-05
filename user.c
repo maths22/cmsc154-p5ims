@@ -46,8 +46,7 @@ bool _isValidUsername(const char *str) {
     if(strlen(str) > IMP_NAME_MAXLEN) {
         return false;
     }
-    int i;
-    for (i = 0; i < strlen(str); i++) {
+    for (size_t i = 0; i < strlen(str); i++) {
         if (isspace(str[i]) || !isprint(str[i])) {
             return false;
         }
