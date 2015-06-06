@@ -15,7 +15,7 @@ $(OBJS): ims.h
 	$(CC) $(CFLAGS) $(IPATH) -c $< -o $@
 
 ims: $(OBJS)
-	$(CC) $(CFLAGS) $(IPATH) -o ims $(OBJS) $(LPATH) -Wl,-rpath,imp -lpthread -limp
+	$(CC) $(CFLAGS) $(IPATH) -o ims $(OBJS) $(LPATH) -Wl,-rpath,'$$ORIGIN/imp' -lpthread -limp
 
 clean:
 	rm -f $(OBJS) ims

@@ -16,6 +16,8 @@ void processIM(connection_t *data, char *username, char *im) {
     dbUser_t *target;
     if(data->user == NULL){
         sendError(data, IMP_ERROR_CLIENT_NOT_BOUND, IMP_END);
+    } else if (strcmp(username,data->user->name)==0) {
+        sendError(data, IMP_ERROR_BAD_COMMAND, IMP_END);
     } else if((target = lookupUser(username)) == NULL) {
         sendError(data, IMP_ERROR_USER_DOES_NOT_EXIST, username, IMP_END);
     } else if (!isFriend(data->user, target)) {
