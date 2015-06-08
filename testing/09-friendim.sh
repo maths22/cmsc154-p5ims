@@ -46,7 +46,7 @@ WANTC=wantC.txt; dieifthere $WANTC; junk $WANTC
 GOTA=gotA.txt; dieifthere $GOTA; junk $GOTA
 GOTB=gotB.txt; dieifthere $GOTB; junk $GOTB
 GOTC=gotC.txt; dieifthere $GOTC; junk $GOTC
-LOG=log.txt
+LOG=log.txt; dieifthere $LOG; junk $LOG
 
 UA=UU_$(printf %04u $[ $RANDOM % 10000 ])
 UB=UU_$(printf %04u $[ $RANDOM % 10000 ])
