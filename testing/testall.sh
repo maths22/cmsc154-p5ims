@@ -1,1 +1,1 @@
-(touch db-test.txt; rm db-test.txt;./01-db.sh; ./02-register.sh; ./03-login.sh; ./04-logout.sh; ./05-friendadd.sh; ./06-friendrm.sh; ./07-friendstat1.sh; ./08-friendstat2.sh; ./09-friendim.sh; ./10-errors.sh; touch db-test.txt; rm db-test.txt; ) | grep "P5IMS TEST "
+find -regex ".*-.*.sh" | sort | xargs -n1 bash | tee $1 | grep "P5IMS TEST "
