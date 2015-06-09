@@ -23,5 +23,7 @@ int listenfd;
 db_t *database;
 pthread_mutex_t db_lock;
 
+int exitfd[2];
+
 #endif	/* GLOBALS_H */
 

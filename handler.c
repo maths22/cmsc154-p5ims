@@ -119,6 +119,8 @@ void serverStop(void) {
 void *quit_thread(void *arg) {
     UNUSED(arg);
     readQuitFromStdin();
-    //TODO: exit on quit
-    return NULL;
+    while(write(exitfd[1],"q",1) != 1){
+        
+    }
+    pthread_exit(0);
 }

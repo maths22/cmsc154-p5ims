@@ -12,7 +12,7 @@ db_t *newDB() {
     ret->numUsers = 0;
     ret->users = calloc(ret->_memsize, sizeof (dbUser_t*));
     //TODO: handle error
-    pthread_rwlock_init(&ret->lock,0);
+    pthread_rwlock_init(&ret->lock, 0);
     return ret;
 }
 
@@ -20,7 +20,6 @@ void addUser(char *username) {
     pthread_rwlock_wrlock(&database->lock);
     if (database->numUsers + 1 > database->_memsize) {
         database->_memsize *= 2;
-        //TODO: update friend relationships
         database->users = realloc(database->users, database->_memsize * sizeof (dbUser_t*));
         //TODO: error check
     }
@@ -71,7 +70,7 @@ void removeFriend(dbUser_t *user, dbUser_t *friend) {
             break;
         }
     }
-    
+
     memmove(&user->friends[i], &user->friends[i + 1], sizeof (dbFriend_t*) * (user->numFriends - i));
     user->numFriends--;
 
@@ -132,6 +131,20 @@ bool isActive(dbUser_t *a) {
     ret = (a->active == IMP_ACTIVE_YES);
     pthread_rwlock_unlock(&database->lock);
     return ret;
+}
+
+void freeDb(db_t *db) {
+    size_t i, j;
+    for (i = 0; i < db->numUsers; i++) {
+        for (j = 0; j < db->users[i]->numFriends; j++) {
+            free(db->users[i]->friends[j]);
+        }
+        free(db->users[i]->friends);
+        free(db->users[i]->name);
+        free(db->users[i]);
+    }
+    free(db->users);
+    free(db);
 }
 
 /* your in-memory representation of user database can be pointed to by some

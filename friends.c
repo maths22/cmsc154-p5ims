@@ -8,7 +8,9 @@ void processRequest(connection_t *conn, char *username) {
     if (conn->user == NULL) {
         sendError(conn, IMP_ERROR_CLIENT_NOT_BOUND, IMP_END);
     } else if ((user = lookupUser(username)) == NULL) {
-        sendError(conn, IMP_ERROR_USER_DOES_NOT_EXIST, username, IMP_END);
+        sendError(conn, IMP_ERROR_USER_DOES_NOT_EXIST, IMP_END);
+    } else if (user == conn->user) {
+        sendError(conn, IMP_ERROR_BAD_COMMAND, IMP_END);
     } else if ((friendshipa = lookupFriend(user, conn->user)) == NULL ||
             (friendshipb = lookupFriend(conn->user, user)) == NULL) {
         addFriend(conn->user, user, IMP_FRIEND_REQUESTED);
@@ -33,7 +35,7 @@ void processRemove(connection_t *conn, char *username) {
     if (conn->user == NULL) {
         sendError(conn, IMP_ERROR_CLIENT_NOT_BOUND, IMP_END);
     } else if ((user = lookupUser(username)) == NULL) {
-        sendError(conn, IMP_ERROR_USER_DOES_NOT_EXIST, username, IMP_END);
+        sendError(conn, IMP_ERROR_USER_DOES_NOT_EXIST, IMP_END);
     } else if (user == conn->user) {
         sendError(conn, IMP_ERROR_BAD_COMMAND, IMP_END);
     } else if ((friendshipa = lookupFriend(user, conn->user)) == NULL ||
@@ -68,7 +70,7 @@ void notifyFriends(connection_t *conn, bool self, bool others) {
         if (friend->status == IMP_FRIEND_YES) {
             active = friend->friend->active;
             if (others) {
-                sendStatus(friend->friend->thread, conn->user->name, IMP_FRIEND_YES, IMP_ACTIVE_YES, IMP_END);
+                sendStatus(friend->friend->thread, conn->user->name, IMP_FRIEND_YES, conn->user->active, IMP_END);
             }
         } else {
             active = IMP_ACTIVE_NOT;
@@ -83,12 +85,13 @@ void notifyFriends(connection_t *conn, bool self, bool others) {
 void notifyFriend(connection_t *conn, dbFriend_t *friend) {
     impActive_t active;
     pthread_rwlock_rdlock(&database->lock);
+    bool req = friend->status != IMP_FRIEND_NOT;
     if (friend->status == IMP_FRIEND_YES) {
         active = friend->friend->active;
-        sendStatus(friend->friend->thread, conn->user->name, IMP_FRIEND_YES, IMP_ACTIVE_YES, IMP_END);
+        sendStatus(friend->friend->thread, conn->user->name, IMP_FRIEND_YES, conn->user->active, IMP_END);
     } else {
         active = IMP_ACTIVE_NOT;
-        sendStatus(friend->friend->thread, conn->user->name, IMP_FRIEND_TOANSWER, IMP_ACTIVE_NOT, IMP_END);
+        sendStatus(friend->friend->thread, conn->user->name, req?IMP_FRIEND_TOANSWER:IMP_FRIEND_NOT, conn->user->active, IMP_END);
     }
     sendStatus(conn, friend->friend->name, friend->status, active, IMP_END);
     pthread_rwlock_unlock(&database->lock);

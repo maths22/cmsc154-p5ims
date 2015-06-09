@@ -12,6 +12,13 @@
 
 #include "ims.h"
 
+typedef struct threads threads;
+
+struct threads {
+    pthread_t t;
+    threads *next;
+};
+
 void usage(const char *me) {
     fprintf(stderr, "\n");
     fprintf(stderr, "usage: %s -d dbname [-p port#] [-i saveInterval] [-v level]\n\n", me);
@@ -92,6 +99,10 @@ int main(int argc, char *argv[]) {
     verbose = verb;
     listenPort = port;
 
+    if (pipe(exitfd) < 0) {
+        //TODO: error handling
+    }
+
     pthread_mutex_init(&db_lock, 0);
 
     impEm *iem = impEmNew();
@@ -105,26 +116,64 @@ int main(int argc, char *argv[]) {
 
     pthread_t update_tid;
     pthread_create(&update_tid, NULL, update_thread, NULL);
-    pthread_detach(update_tid);
+    threads *tids = malloc(sizeof (threads));
+    //TODO check error
+    tids->t = update_tid;
+    tids->next = NULL;
+    threads *last = tids;
+
     pthread_t quit_tid;
     pthread_create(&quit_tid, NULL, quit_thread, NULL);
-    pthread_detach(quit_tid);
+    threads *nexttid = malloc(sizeof (threads));
+    //TODO check error
+    nexttid->t = quit_tid;
+    nexttid->next = NULL;
+    last->next = nexttid;
+    last = nexttid;
 
+    fd_set read_fd_set;
     while (true) {
-        int connfd = accept(listenfd, NULL, NULL);
-        if (connfd == -1) {
-            //TODO conn error?
-            perror("accept");
-            continue;
+        FD_ZERO(&read_fd_set);
+        FD_SET(listenfd, &read_fd_set);
+        FD_SET(exitfd[0], &read_fd_set);
+        if (select(FD_SETSIZE, &read_fd_set, NULL, NULL, NULL) < 0) {
+            //TODO: error handling
         }
+        if (FD_ISSET(exitfd[0], &read_fd_set)) {
+            break;
+        }
+        if (FD_ISSET(listenfd, &read_fd_set)) {
+            int connfd = accept(listenfd, NULL, NULL);
+            if (connfd == -1) {
+                //TODO conn error?
+                perror("accept");
+                continue;
+            }
 
-        pthread_t child;
-        int *arg = malloc(sizeof (int));
-        *arg = connfd;
-        pthread_create(&child, NULL, connection_thread, (void *) arg);
-        pthread_detach(child);
+            pthread_t child;
+            int *arg = malloc(sizeof (int));
+            *arg = connfd;
+            pthread_create(&child, NULL, connection_thread, (void *) arg);
+            threads *nexttid = malloc(sizeof (threads));
+            //TODO check error
+            nexttid->t = child;
+            nexttid->next = NULL;
+            last->next = nexttid;
+            last = nexttid;
+        }
     }
 
+    pthread_cancel(update_tid);
+
+    while (tids != NULL) {
+        last = tids;
+        pthread_join(tids->t, NULL);
+        tids = tids->next;
+        free(last);
+    }
+
+    udbaseWrite(NULL);
+    freeDb(database);
 
     exit(0);
 }

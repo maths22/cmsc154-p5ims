@@ -22,6 +22,8 @@ void *connection_thread(void *connfd_p) {
     data->tid = pthread_self();
     sendAck(data, IMP_OP_CONNECT, IMP_END);
     char buf[BUFF_SIZE];
+    char *cmdstr;
+    char *strtok_nl;
     char where[BUFF_SIZE];
     int cnt;
     fd_set read_fd_set;
@@ -31,9 +33,14 @@ void *connection_thread(void *connfd_p) {
         FD_ZERO(&read_fd_set);
         FD_SET(data->readfd, &read_fd_set);
         FD_SET(connfd, &read_fd_set);
+        FD_SET(exitfd[0], &read_fd_set);
 
         if (select(FD_SETSIZE, &read_fd_set, NULL, NULL, NULL) < 0) {
             //TODO: error handling
+        }
+
+        if (FD_ISSET(exitfd[0], &read_fd_set)) {
+            break;
         }
 
         if (FD_ISSET(connfd, &read_fd_set)) {
@@ -46,7 +53,7 @@ void *connection_thread(void *connfd_p) {
                 break;
             }
             if (!cnt) {
-                fprintf(stderr, "%s: server closed connection\n", me);
+                fprintf(stderr, "%s: client closed connection\n", me);
                 if (close(connfd)) {
                     sprintf(where, "%s: close() after server disconnect", me);
                     perror(where);
@@ -55,32 +62,39 @@ void *connection_thread(void *connfd_p) {
                 break;
             }
             //TODO: split protocol strings
+            cmdstr = strtok_r(buf, "\n", &strtok_nl);
+            if (cmdstr != NULL) {
+                do {
 
-            impEm *iem = impEmNew();
-            impMsg *ret = impStrToMsg(iem, buf);
-            if (!ret) {
-                impEmFprint(stderr, iem);
-                impEmFree(iem);
+                    impEm *iem = impEmNew();
+                    impMsg *ret = impStrToMsg(iem, cmdstr);
+                    if (!ret) {
+                        impEmFprint(stderr, iem);
+                        impEmFree(iem);
+                        sendError(data, IMP_ERROR_BAD_COMMAND, IMP_END);
+                        continue;
+                    }
+                    impEmFree(iem);
+
+                    impMsgOp *opMsg;
+                    switch (ret->mt) {
+                        case IMP_MSG_TYPE_OP:
+                            opMsg = (impMsgOp*) ret;
+                            pthread_mutex_lock(&db_lock);
+                            _handleOpMsg(data, opMsg);
+                            pthread_mutex_unlock(&db_lock);
+                            break;
+                        default:
+                            sendError(data, IMP_ERROR_BAD_COMMAND, IMP_END);
+                            break;
+                    }
+
+                    impMsgFree(ret);
+                } while ((cmdstr = strtok_r(NULL, "\n", &strtok_nl)));
+
+            } else {
                 sendError(data, IMP_ERROR_BAD_COMMAND, IMP_END);
-                continue;
             }
-            impEmFree(iem);
-
-            impMsgOp *opMsg;
-            switch (ret->mt) {
-                case IMP_MSG_TYPE_OP:
-                    opMsg = (impMsgOp*) ret;
-                    pthread_mutex_lock(&db_lock);
-                    _handleOpMsg(data, opMsg);
-                    pthread_mutex_unlock(&db_lock);
-                    break;
-                default:
-                    sendError(data, IMP_ERROR_BAD_COMMAND, IMP_END);
-                    break;
-            }
-
-            impMsgFree(ret);
-
         }
 
         if (FD_ISSET(data->readfd, &read_fd_set)) {
@@ -102,11 +116,13 @@ void *connection_thread(void *connfd_p) {
             }
             pthread_mutex_unlock(&data->pipeguard);
         }
+
     }
-    return NULL;
+    free(data);
+    pthread_exit(0);
 }
 
-void _handleOpMsg(connection_t *conn, impMsgOp *msg) {
+void _handleOpMsg(connection_t *conn, impMsgOp * msg) {
     if (verbose) {
         printf("OP received: %s\n", impOpStr(msg->op));
     }

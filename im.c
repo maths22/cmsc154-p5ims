@@ -19,7 +19,7 @@ void processIM(connection_t *data, char *username, char *im) {
     } else if (strcmp(username,data->user->name)==0) {
         sendError(data, IMP_ERROR_BAD_COMMAND, IMP_END);
     } else if((target = lookupUser(username)) == NULL) {
-        sendError(data, IMP_ERROR_USER_DOES_NOT_EXIST, username, IMP_END);
+        sendError(data, IMP_ERROR_USER_DOES_NOT_EXIST, IMP_END);
     } else if (!isFriend(data->user, target)) {
         sendError(data, IMP_ERROR_NOT_FRIEND, username, IMP_END);
     } else if (!isActive(target)) {

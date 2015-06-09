@@ -47,5 +47,8 @@ int udbaseWrite(impEm *iem);
 
 void *update_thread(void *arg);
 
+void freeDb(db_t *db);
+db_t *newDB();
+
 #endif	/* UDBASE_H */
 
