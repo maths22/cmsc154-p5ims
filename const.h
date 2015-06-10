@@ -9,7 +9,7 @@
 
 #define BACKLOG 20
 
-#define BUFF_SIZE 2048
+#define BUFF_SIZE 4096
 
 #endif	/* CONST_H */
 
