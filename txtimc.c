@@ -30,7 +30,7 @@ int quiet = 0;
 int connfd = -1;
 char myself[IMP_NAME_MAXLEN + 1] = NOT_LOGGED_IN;
 char prompt[BUFF_SIZE + 1];
-int exitfd_wr, exitfd_rd;
+int exitfd[2];
 
 /* end globals */
 
@@ -48,7 +48,30 @@ void rdlnprintf(char *str, ...) {
     va_list args;
     va_start(args, str);
     vprintf(str, args);
-    va_end (args);
+    va_end(args);
+
+    rl_set_prompt(prompt);
+    rl_replace_line(saved_line, 0);
+    rl_point = saved_point;
+    rl_forced_update_display();
+    free(saved_line);
+}
+
+void rdlnprintf_stderr(char *str, ...) {
+    sprintf(prompt, "imc(%s)> ", myself);
+    rl_set_prompt(prompt);
+    char* saved_line;
+    int saved_point;
+    saved_point = rl_point;
+    saved_line = rl_copy_text(0, rl_end);
+    rl_set_prompt("");
+    rl_replace_line("", 0);
+    rl_redisplay();
+
+    va_list args;
+    va_start(args, str);
+    vfprintf(stderr, str, args);
+    va_end(args);
 
     rl_set_prompt(prompt);
     rl_replace_line(saved_line, 0);
@@ -139,7 +162,7 @@ serverConnect(char *hostname, unsigned short port) {
     hints.ai_socktype = SOCK_STREAM;
     status = getaddrinfo(hostname, portStr, &hints, &servinfo);
     if (status) {
-        fprintf(stderr, "%s: getaddrinfo() error: %s\n", me, gai_strerror(status));
+        rdlnprintf_stderr("%s: getaddrinfo() error: %s\n", me, gai_strerror(status));
         return -1;
     }
 
@@ -161,7 +184,7 @@ serverConnect(char *hostname, unsigned short port) {
         break;
     }
     if (svi == NULL) {
-        fprintf(stderr, "%s: nothing to connect to\n", me);
+        rdlnprintf_stderr("%s: nothing to connect to\n", me);
         return -1;
     }
 
@@ -201,7 +224,7 @@ processServerStr(char *allstr) {
         /* parse server response */
         impMsg *pm = impStrToMsg(iem, pstr);
         if (!pm) {
-            fprintf(stderr, "%s: problem parsing response %u \"%s\":\n",
+            rdlnprintf_stderr("%s: problem parsing response %u \"%s\":\n",
                     me, respIdx, pstr);
             impEmFprint(stderr, iem);
             impEmFree(iem);
@@ -262,16 +285,19 @@ getServerStr(void *args /* unused */) {
             break;
         }
         if (!readBytes) {
-            fprintf(stderr, "%s: server closed connection\n", me);
+            rdlnprintf_stderr("%s: server closed connection\n", me);
             if (close(connfd)) {
                 sprintf(where, "%s: close() after server disconnect", me);
                 perror(where);
             }
-            connfd = -1;
-            break;
+            while (write(exitfd[1], "q", 1) != 1) {
+
+            }
+            pthread_exit(0);
+
         }
         if ((pss = processServerStr(str))) {
-            fprintf(stderr, "%s: problem with server message (ret=%d)\n", me, pss);
+            rdlnprintf_stderr("%s: problem with server message (ret=%d)\n", me, pss);
             break;
         }
     }
@@ -292,18 +318,18 @@ processOp(impOp_t op, char *_args) {
     if (!impMsgUserArg(IMP_MSG_TYPE_OP, op)) {
         /* no need for username (nor IM) arg */
         if (args && strlen(args)) {
-            fprintf(stderr, "%s: WARNING: IGNORING extraneous \"%s\"\n", me, args);
+            rdlnprintf_stderr("%s: WARNING: IGNORING extraneous \"%s\"\n", me, args);
         }
     } else {
         /* do need username */
         if (!args || !strlen(args)) {
-            fprintf(stderr, "%s: didn't get username for OP %s\n",
+            rdlnprintf_stderr("%s: didn't get username for OP %s\n",
                     me, impOpStr(op));
             return;
         }
         name = strdup(args);
         if (1 != sscanf(args, "%s", name)) {
-            fprintf(stderr, "%s: didn't get username for OP %s\n",
+            rdlnprintf_stderr("%s: didn't get username for OP %s\n",
                     me, impOpStr(op));
             free(name);
             return;
@@ -315,14 +341,14 @@ processOp(impOp_t op, char *_args) {
             /* and also need message text */
             if (!strlen(args) || !strlen(args + 1)
                     || 1 != sscanf(args + 1, "%[^\n]", IM)) {
-                fprintf(stderr, "%s: didn't get message text for OP %s\n",
+                rdlnprintf_stderr("%s: didn't get message text for OP %s\n",
                         me, impOpStr(op));
                 free(name);
                 free(IM);
                 return;
             }
         } else if (strlen(args)) {
-            fprintf(stderr, "%s: WARNING: IGNORING extraneous \"%s\"\n", me, args);
+            rdlnprintf_stderr("%s: WARNING: IGNORING extraneous \"%s\"\n", me, args);
         }
     }
 
@@ -342,7 +368,7 @@ processOp(impOp_t op, char *_args) {
         }
     }
     if (!str) {
-        fprintf(stderr, "%s: impStrNew trouble:\n", me);
+        rdlnprintf_stderr("%s: impStrNew trouble:\n", me);
         impEmFprint(stderr, iem);
     }
     impEmFree(iem);
@@ -365,7 +391,8 @@ processUserLine(char *buff) {
 
 
     if (!buff) {
-        fprintf(stderr, "\nGot EOF; quitting\n");
+        fprintf(stderr,"\nGot EOF; quitting\n");
+        rl_callback_handler_remove();
         exit(0);
     }
     if (strlen(buff)) {
@@ -422,7 +449,7 @@ processUserLine(char *buff) {
                 }
             }
             if (0 > send(connfd, rawnl, strlen(rawnl), 0)) {
-                fprintf(stderr, "\n%s ERROR: send() to server failed: %s\n",
+                rdlnprintf_stderr("\n%s ERROR: send() to server failed: %s\n",
                         myself, strerror(errno));
             }
             free(rawnl);
@@ -430,7 +457,7 @@ processUserLine(char *buff) {
     } else if (!strcmp(cmd, "sleep")) {
         int secs;
         if (1 != sscanf(args, "%d", &secs)) {
-            fprintf(stderr, "%s: couldn't parse \"%s\" as integer\n", me, args);
+            rdlnprintf_stderr("%s: couldn't parse \"%s\" as integer\n", me, args);
         } else {
             rdlnprintf("sleep(%d) ... \n", secs);
             sleep(secs);
@@ -440,6 +467,7 @@ processUserLine(char *buff) {
         printf("quitting\n");
         /* have to exit, rather than return; so that the whole
            process (and the other thread) come down too */
+        rl_callback_handler_remove();
         exit(0);
     } else if (!strcmp(cmd, "help")
             || !strcmp(cmd, "?")
@@ -456,7 +484,7 @@ processUserLine(char *buff) {
         rdlnprintf("\t \"sleep <t>\"\n");
         rdlnprintf("\t \"quit\" or \"q\"\n");
     } else {
-        fprintf(stderr, "couldn't parse command \"%s%s%s\"\n", cmd,
+        rdlnprintf_stderr("couldn't parse command \"%s%s%s\"\n", cmd,
                 args ? " " : "", args ? args : "");
     }
 }
@@ -478,6 +506,7 @@ getTextInput(void *data) {
     while (1) {
         FD_ZERO(&fds);
         FD_SET(STDIN_FILENO, &fds);
+        FD_SET(exitfd[0], &fds);
 
         r = select(FD_SETSIZE, &fds, NULL, NULL, NULL);
         if (r < 0) {
@@ -491,10 +520,12 @@ getTextInput(void *data) {
         }
 
 
-        if (-1 == connfd) {
+        if (FD_ISSET(exitfd[0], &fds)) {
             fprintf(stderr, "%s: server connection closed; we are done\n", me);
-            return NULL;
+            rl_callback_handler_remove();
+            exit(0);
         }
+
 
     }
     return NULL;
@@ -504,6 +535,9 @@ int
 textInit() {
     pthread_t input, server;
     void *rv;
+    if (pipe(exitfd) < 0) {
+        //ignore error
+    }
 
     pthread_create(&input, NULL, getTextInput, NULL);
     pthread_create(&server, NULL, getServerStr, NULL);
