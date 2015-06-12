@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
             last = nexttid;
         }
     }
-
+    close(listenfd);
     pthread_cancel(update_tid);
 
     while (tids != NULL) {

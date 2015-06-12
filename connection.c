@@ -118,6 +118,7 @@ void *connection_thread(void *connfd_p) {
         }
 
     }
+    close(connfd);
     free(data);
     pthread_exit(0);
 }

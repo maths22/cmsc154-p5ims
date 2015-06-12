@@ -91,7 +91,7 @@ void notifyFriend(connection_t *conn, dbFriend_t *friend) {
         sendStatus(friend->friend->thread, conn->user->name, IMP_FRIEND_YES, conn->user->active, IMP_END);
     } else {
         active = IMP_ACTIVE_NOT;
-        sendStatus(friend->friend->thread, conn->user->name, req?IMP_FRIEND_TOANSWER:IMP_FRIEND_NOT, conn->user->active, IMP_END);
+        sendStatus(friend->friend->thread, conn->user->name, req?IMP_FRIEND_TOANSWER:IMP_FRIEND_NOT, IMP_ACTIVE_NOT, IMP_END);
     }
     sendStatus(conn, friend->friend->name, friend->status, active, IMP_END);
     pthread_rwlock_unlock(&database->lock);
