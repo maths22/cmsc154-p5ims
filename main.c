@@ -163,6 +163,8 @@ int main(int argc, char *argv[]) {
         }
     }
     close(listenfd);
+    close(exitfd[0]);
+    close(exitfd[1]);
     pthread_cancel(update_tid);
 
     while (tids != NULL) {
