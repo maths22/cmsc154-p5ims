@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=FRIEND_IM-07.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=FRIEND_IM
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -57,41 +57,38 @@ bob
 .
 endofusers
 
-(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
-IMSPID=$!
+cat > $CIN1 <<EOF
+login alice
+sleep 4
+im bob Hello bob
+sleep 4
+EOF
+
+cat > $CIN2 <<EOF
+login bob
+sleep 4
+im alice Hello alice
+sleep 4
+EOF
+
+echo "vvvvvvvvvvvvvvvvvvvvv txtimc inputs:"
+cat $CIN1
+echo "================="
+cat $CIN2
+echo "^^^^^^^^^^^^^^^^^^^^^"
+
+
+(sleep 11; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
 sleep 1
 
-mkfifo $CIN1
-mkfifo $CIN2
-
 $TXTIMC -s localhost -p $PORT < $CIN1 &> $COUT1 &
-CLIAPID=$!
-
 $TXTIMC -s localhost -p $PORT < $CIN2 &> $COUT2 &
-CLIBPID=$!
+sleep 9
 
-echo "login alice" > $CIN1
-echo "sleep 4" > $CIN1
-echo "login bob" > $CIN2
-echo "sleep 4" > $CIN2
-echo "im bob Hello bob" > $CIN1
-echo "sleep 4" > $CIN1
-echo "im alice Hello alice" > $CIN2
-echo "sleep 4" > $CIN2
-
-wait $CLIAPID
-wait $CLIBPID
-
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "vvvvvvvvvvvvvvvvvvvvv txtimc outputs:"
 cat $COUT1
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "================="
 cat $COUT2
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv final $DB"
-cat $DB
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
 gotMsg1=$(grep "*** alice says \"Hello bob\" ***" $COUT2 | wc -l)
@@ -103,6 +100,10 @@ else
     echo "P5IMS TEST $TEST: GOT MSGS 0"
 fi
 
-if [[ $gotMsg1 == 1 && $gotMsg2 == 1 ]]; then
-    echo "$NAME" >> $GRADEFILE
+score=0
+if [[ $gotMsg1 == 1 ]]; then (( score++ )); fi
+if [[ $gotMsg2 == 1 ]]; then (( score++ )); fi
+
+if [[ -v scoreFile ]]; then
+  echo "$NAME $score/2" >> $scoreFile
 fi

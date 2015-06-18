@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=FRIEND_STATUS_UPDATE-04.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=FRIEND_STATUS_UPDATE
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -65,13 +65,31 @@ david
 .
 endofusers
 
-(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
-IMSPID=$!
-sleep 1
+cat > $CIN1 <<EOF
+login alice
+sleep 6
+friend_remove bob
+sleep 3
+EOF
+cat > $CIN2 <<EOF
+login bob
+sleep 8
+EOF
+cat > $CIN3 <<EOF
+login david
+sleep 6
+EOF
 
-mkfifo $CIN1
-mkfifo $CIN2
-mkfifo $CIN3
+echo "vvvvvvvvvvvvvvvvvvvvv txtimc inputs:"
+cat $CIN1
+echo "================="
+cat $CIN2
+echo "================="
+cat $CIN3
+echo "^^^^^^^^^^^^^^^^^^^^^"
+
+(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
+sleep 1
 
 $TXTIMC -s localhost -p $PORT < $CIN1 &> $COUT1 &
 CLIAPID=$!
@@ -82,15 +100,6 @@ CLIBPID=$!
 $TXTIMC -s localhost -p $PORT < $CIN3 &> $COUT3 &
 CLICPID=$!
 
-echo "login alice" > $CIN1
-echo "sleep 6" > $CIN1
-echo "login bob" > $CIN2
-echo "sleep 8" > $CIN2
-echo "login david" > $CIN3
-echo "sleep 6" > $CIN3
-echo "friend_remove bob" > $CIN1
-echo "sleep 3" > $CIN1
-
 wait $CLIAPID
 wait $CLIBPID
 wait $CLICPID
@@ -98,20 +107,12 @@ wait $CLICPID
 echo "=== sleep $[$PAUSE+2] (waiting for $DB to be re-written)"
 sleep $[$PAUSE+2]
 
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "vvvvvvvvvvvvvvvvvvvvv txtimc outputs:"
 cat $COUT1
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "================="
 cat $COUT2
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "================="
 cat $COUT3
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv final $DB"
-cat $DB
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
 gotMsg1=$(grep "*** alice: FRIEND_NOT ***" $COUT2 | wc -l)
@@ -125,6 +126,13 @@ else
     echo "P5IMS TEST $TEST: GOT MSGS 0"
 fi
 
-if [[ $gotMsg1 == 1 && $gotMsg2 == 1 && $gotMsg3 == 0 && $gotMsg4 == 0 ]]; then
-    echo "$NAME" >> $GRADEFILE
+score=0
+if [[ &&  &&  &&  ]]; then
+if [[ $gotMsg1 == 1 ]]; then (( score++ )); fi
+if [[ $gotMsg2 == 1 ]]; then (( score++ )); fi
+if [[ $gotMsg3 == 0 ]]; then (( score++ )); fi
+if [[ $gotMsg4 == 0 ]]; then (( score++ )); fi
+
+if [[ -v scoreFile ]]; then
+  echo "$NAME $score/4" >> $scoreFile
 fi

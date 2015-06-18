@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=LOGOUT-03.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=LOGOUT
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -55,20 +55,19 @@ bob
 .
 endofusers
 
-(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
-IMSPID=$!
-sleep 1
-
 touch $CIN
 echo "register $UU" >> $CIN
 echo "login $UU" >> $CIN
-echo "logout $UU" >> $CIN
-echo "logout $UU" >> $CIN
+echo "logout" >> $CIN
+echo "logout" >> $CIN
 echo "sleep 3"  >> $CIN
 
 echo "vvvvvvvvvvvvvvvvvvvvv txtimc input:"
 cat $CIN
 echo "^^^^^^^^^^^^^^^^^^^^^"
+
+(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
+sleep 1
 
 $TXTIMC -s localhost -p $PORT < $CIN &> $COUT
 
@@ -97,6 +96,14 @@ echo "P5IMS TEST $TEST: ACK LOGOUT $gotacklogout"
 echo "P5IMS TEST $TEST: ERROR CLIENT_NOT_BOUND $gotError"
 echo "P5IMS TEST $TEST: INDB $indb"
 
-if [[ $gotackcnct == 1 && $gotackreg == 1 && $gotacklogin == 1 && $gotacklogout && $gotError == 1 && $indb == 1 ]]; then
-    echo "$NAME" >> $GRADEFILE
+score=0
+if [[ $gotackcnct == 1 ]]; then (( score++ )); fi
+if [[ $gotackreg == 1 ]]; then (( score++ )); fi
+if [[ $gotacklogin == 1 ]]; then (( score++ )); fi
+if [[ $gotacklogout == 1 ]]; then (( score++ )); fi
+if [[ $gotError == 1 ]]; then (( score++ )); fi
+if [[ $indb == 1 ]]; then (( score++ )); fi
+
+if [[ -v scoreFile ]]; then
+  echo "$NAME $score/6" >> $scoreFile
 fi

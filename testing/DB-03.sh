@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=DB-03.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=DB
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
@@ -14,6 +11,7 @@ function cleanup {
   rm -rf $JUNK
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -29,13 +27,8 @@ if [[ ! -x $CNDB ]]; then
   exit 1
 fi
 IMS=../ims
-TXTIMC=../txtimc
 if [[ ! -x $IMS ]]; then
   echo "P5IMS ERROR $TEST: don't see $IMS executable" >&2
-  exit 1
-fi
-if [[ ! -x $TXTIMC ]]; then
-  echo "P5IMS ERROR $TEST: don't see $TXTIMC executable" >&2
   exit 1
 fi
 
@@ -52,7 +45,6 @@ UE=UU_$(printf %06u $[ $RANDOM % 1000000 ])
 UF=UU_$(printf %06u $[ $RANDOM % 1000000 ])
 UG=UU_$(printf %06u $[ $RANDOM % 1000000 ])
 UH=UU_$(printf %06u $[ $RANDOM % 1000000 ])
-PAUSE=3
 
 touch $DB1
 cat > $DB1 <<endofusers
@@ -105,18 +97,18 @@ echo "^^^^^^^^^^^^^^^^^^^^^"
 time0=$(ls -ln --time-style=+%T $DB2  | cut -d' ' -f 6)
 echo "=== $DB2 time0 = $time0"
 
-echo "=== sleep $PAUSE before running server"
-sleep $PAUSE
+echo "=== sleep 4 before running server"
+sleep 4
 
-echo "=== (tail -f /dev/null) | $IMS -p $PORT -d $DB2 -i $PAUSE &> $LOG &"
-(tail -f /dev/null) | $IMS -p $PORT -d $DB2 -i $PAUSE &> $LOG &
-IMSPID=$!
+echo "=== (tail -f /dev/null) | $IMS -p $PORT -d $DB2 -i 10 &> $LOG &"
+(tail -f /dev/null) | $IMS -p $PORT -d $DB2 -i 10 &> $LOG &
 
 echo "=== sleep 1 to let server re-write database"
 sleep 1
 
-echo "=== killing server $IMSPID"
-(kill -9 $IMSPID &> /dev/null)||:
+echo "=== killing server"
+(killall -9 tail &> /dev/null) ||:
+(killall -9 ims &> /dev/null) ||:
 
 time1=$(ls -ln --time-style=+%T $DB2  | cut -d' ' -f 6)
 echo "=== $DB2 time1 = $time1"
@@ -129,6 +121,10 @@ else
   okay=0
 fi
 
-if [[ 1 -eq "$okay" ]]; then
-    echo "$NAME" >> $GRADEFILE
+if [[ -v scoreFile ]]; then
+  if [[ 1 -eq "$okay" ]]; then
+    echo "$NAME 1/1" >> $scoreFile
+  else
+    echo "$NAME 0/1" >> $scoreFile
+  fi
 fi

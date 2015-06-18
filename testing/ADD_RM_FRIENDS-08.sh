@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=ADD_RM_FRIENDS-08.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=ADD_RM_FRIENDS
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -55,18 +55,10 @@ bob
 .
 endofusers
 
-(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
-IMSPID=$!
-sleep 1
-
 touch $CIN1
 echo "login alice" >> $CIN1
 echo "friend_request bob" >> $CIN1
 echo "sleep 6"  >> $CIN1
-
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc input:"
-cat $CIN1
-echo "^^^^^^^^^^^^^^^^^^^^^"
 
 touch $CIN2
 echo "login bob" >> $CIN2
@@ -74,34 +66,33 @@ echo "friend_request alice" >> $CIN2
 echo "friend_request alice" >> $CIN2
 echo "sleep 3"  >> $CIN2
 
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc input:"
+echo "vvvvvvvvvvvvvvvvvvvvv txtimc inputs"
+cat $CIN1
+echo "======================"
 cat $CIN2
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
+(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
+sleep 1
+
 $TXTIMC -s localhost -p $PORT < $CIN1 &> $COUT1 &
-CLIAPID=$!
-
 $TXTIMC -s localhost -p $PORT < $CIN2 &> $COUT2 &
-CLIBPID=$!
-wait $CLIAPID
-wait $CLIBPID
+sleep 7
 
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "vvvvvvvvvvvvvvvvvvvvv txtimc outputs:"
 cat $COUT1
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "===================="
 cat $COUT2
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv final $DB"
-cat $DB
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
 goterror=$(grep "!!! ERROR FRIEND_ALREADY alice !!!" $COUT2 | wc -l)
 
 echo "P5IMS TEST $TEST: ERROR FRIEND_ALREADY $goterror"
 
-if [[ $goterror == 1 ]]; then
-    echo "$NAME" >> $GRADEFILE
+if [[ -v scoreFile ]]; then
+  if [[ $goterror == 1 ]]; then
+    echo "$NAME 1/1" >> $scoreFile
+  else
+    echo "$NAME 0/1" >> $scoreFile
+  fi
 fi

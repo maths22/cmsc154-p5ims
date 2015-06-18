@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=REG-06.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=REGISTER
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -41,16 +41,14 @@ PORT=$[ 5000 + ($RANDOM % 3000)]
 NUMCLIENTS=10
 PAUSE=3
 
-for ((i=1; i<=$NUMCLIENTS; i++))
-do
+for ((i=1; i<=$NUMCLIENTS; i++)); do
     arrayUsers[i]=UU_$(printf %06u $[ $RANDOM % 1000000 ])
 done
 
 DB=db-test.txt; dieifthere $DB; junk $DB
 LOG=log.txt; dieifthere $LOG; junk $LOG
 
-for ((i=1; i<=$NUMCLIENTS; i++))
-do
+for ((i=1; i<=$NUMCLIENTS; i++)); do
     arrayCIn[i]=in"$i".txt; dieifthere ${arrayCIn[i]}; junk ${arrayCIn[i]}
     arrayCOut[i]=out"$i".txt; dieifthere ${arrayCOut[i]}; junk ${arrayCOut[i]}
 done
@@ -59,23 +57,24 @@ cat > $DB <<endofusers
 0 users:
 endofusers
 
-(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
-IMSPID=$!
-sleep 1
-
-for ((i=1; i<=$NUMCLIENTS; i++))
-do
+for ((i=1; i<=$NUMCLIENTS; i++)); do
     CIN=${arrayCIn[i]}
     echo "register ${arrayUsers[i]}" >> $CIN
     echo "sleep 3"  >> $CIN
+    echo "vvvvvvvvvvvvvvvvvv input $CIN"
+    cat $CIN
+    echo "^^^^^^^^^^^^^^^^^^"
+done
 
-    COUT=${arrayCOut[i]}
-    $TXTIMC -s localhost -p $PORT < $CIN &> $COUT &
+(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
+sleep 1
+
+for ((i=1; i<=$NUMCLIENTS; i++)); do
+    $TXTIMC -s localhost -p $PORT < ${arrayCIn[i]} &> ${arrayCOut[i]} &
     arrayPIDs[i]=$!
 done
 
-for ((i=1; i<=$NUMCLIENTS; i++))
-do
+for ((i=1; i<=$NUMCLIENTS; i++)); do
     wait ${arrayPIDs[i]}
 done
 
@@ -87,8 +86,7 @@ cat $DB
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
 passed=1
-for ((i=1; i<=$NUMCLIENTS; i++))
-do
+for ((i=1; i<=$NUMCLIENTS; i++)); do
     inDB=$(grep "${arrayUsers[i]}" $DB | wc -l)
     if [[ $inDB != 1 ]]; then
 	passed=0
@@ -98,6 +96,7 @@ done
 
 echo "P5IMS TEST $TEST: INDB $passed"
 
-if [[ $passed == 1 ]]; then
-    echo "$NAME" >> $GRADEFILE
+if [[ -v scoreFile ]]; then
+  echo "$NAME $passed/1" >> $scoreFile
 fi
+

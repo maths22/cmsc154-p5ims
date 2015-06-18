@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=DB-01.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=DB
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -71,7 +71,6 @@ echo "^^^^^^^^^^^^^^^^^^^^^"
 
 echo "=== (tail -f /dev/null) | $IMS -p $PORT -d $DB2 -i $PAUSE &> $LOG &"
 (tail -f /dev/null) | $IMS -p $PORT -d $DB2 -i $PAUSE &> $LOG &
-IMSPID=$!
 
 echo "=== sleep 1"
 sleep 1
@@ -79,8 +78,9 @@ sleep 1
 echo "=== rm -f $DB2"
 rm -f $DB2
 
-echo "=== sleep $[$PAUSE+2] (waiting for $DB2 to be re-written)"
-sleep $[$PAUSE+2]
+tosleep=$[$PAUSE+2]
+echo "=== sleep $tosleep (waiting for $DB2 to be re-written)"
+sleep $tosleep
 
 okay=0
 if [[ -e $DB2 ]]; then
@@ -104,6 +104,11 @@ else
   cat $LOG
 fi
 
-if [[ 1 -eq "$okay" ]]; then
-    echo "$NAME" >> $GRADEFILE
+if [[ -v scoreFile ]]; then
+  if [[ 1 -eq "$okay" ]]; then
+    echo "$NAME 1/1" >> $scoreFile
+  else
+    echo "$NAME 0/1" >> $scoreFile
+  fi
 fi
+

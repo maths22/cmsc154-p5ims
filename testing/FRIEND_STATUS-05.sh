@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=FRIEND_STATUS-05.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=FRIEND_STATUS
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -58,38 +58,30 @@ bob
 endofusers
 
 (sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
-IMSPID=$!
 sleep 1
 
-mkfifo $CIN1
-mkfifo $CIN2
+echo "login alice" > $CIN1
+echo "sleep 3" >> $CIN1
+echo "friend_request bob" >> $CIN1
+echo "sleep 3" >> $CIN1
+
+echo "login bob" > $CIN2
+echo "sleep 6" >> $CIN2
+
+echo "vvvvvvvvvvvvvvvvvvvvv txtimc inputs"
+cat $CIN1
+echo "============="
+cat $CIN2
+echo "^^^^^^^^^^^^^^^^^^^^^"
 
 $TXTIMC -s localhost -p $PORT < $CIN1 &> $COUT1 &
-CLIAPID=$!
-
 $TXTIMC -s localhost -p $PORT < $CIN2 &> $COUT2 &
-CLIBPID=$!
+sleep 7
 
-echo "login alice" > $CIN1
-echo "sleep 3" > $CIN1
-echo "login bob" > $CIN2
-echo "sleep 6" > $CIN2
-echo "friend_request bob" > $CIN1
-echo "sleep 3" > $CIN1
-
-wait $CLIAPID
-wait $CLIBPID
-
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "vvvvvvvvvvvvvvvvvvvvv txtimc outputs"
 cat $COUT1
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
+echo "============="
 cat $COUT2
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
-echo "vvvvvvvvvvvvvvvvvvvvv final $DB"
-cat $DB
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
 gotMsg1=$(grep "STATUS alice FRIEND_YES ACTIVE_YES" $COUT2 | wc -l)
@@ -101,6 +93,10 @@ else
     echo "P5IMS TEST $TEST: GOT MSGS 0"
 fi
 
-if [[ $gotMsg1 == 1 && $gotMsg2 == 1 ]]; then
-    echo "$NAME" >> $GRADEFILE
+score=0
+if [[ $gotMsg1 == 1 ]]; then (( score++ )); fi
+if [[ $gotMsg2 == 1 ]]; then (( score++ )); fi
+
+if [[ -v scoreFile ]]; then
+  echo "$NAME $score/2" >> $scoreFile
 fi

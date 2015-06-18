@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=FRIEND_STATUS_UPDATE-02.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=FRIEND_STATUS_UPDATE
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -56,27 +56,22 @@ bob
 endofusers
 
 (sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
-IMSPID=$!
 sleep 1
 
-mkfifo $CIN1
-mkfifo $CIN2
+cat > $CIN1 <<EOF
+login alice
+sleep 3
+friend_remove bob
+sleep 3
+EOF
+cat > $CIN2 <<EOF
+login bob
+sleep 6
+EOF
 
 $TXTIMC -s localhost -p $PORT < $CIN1 &> $COUT1 &
-CLIAPID=$!
-
 $TXTIMC -s localhost -p $PORT < $CIN2 &> $COUT2 &
-CLIBPID=$!
-
-echo "login alice" > $CIN1
-echo "sleep 3" > $CIN1
-echo "login bob" > $CIN2
-echo "sleep 6" > $CIN2
-echo "friend_remove bob" > $CIN1
-echo "sleep 3" > $CIN1
-
-wait $CLIAPID
-wait $CLIBPID
+sleep 6
 
 echo "=== sleep $[$PAUSE+2] (waiting for $DB to be re-written)"
 sleep $[$PAUSE+2]
@@ -89,10 +84,6 @@ echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
 cat $COUT2
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
-echo "vvvvvvvvvvvvvvvvvvvvv final $DB"
-cat $DB
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
 gotMsg1=$(grep "STATUS" $COUT2 | wc -l)
 gotMsg2=$(grep "STATUS" $COUT1 | wc -l)
 
@@ -102,6 +93,10 @@ else
     echo "P5IMS TEST $TEST: GOT MSGS 0"
 fi
 
-if [[ $gotMsg1 == 0 && $gotMsg2 == 0 ]]; then
-    echo "$NAME" >> $GRADEFILE
+score=0
+if [[ $gotMsg1 == 0 ]]; then (( score++ )); fi
+if [[ $gotMsg2 == 0 ]]; then (( score++ )); fi
+
+if [[ -v scoreFile ]]; then
+  echo "$NAME $score/2" >> $scoreFile
 fi

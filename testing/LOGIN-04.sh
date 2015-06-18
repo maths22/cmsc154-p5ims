@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o nounset
 
 NAME=LOGIN-04.sh
-GRADEFILE=CummulativeTestReport.txt
 TEST=LOGIN
-IMSPID=0
 JUNK=""
 function junk {
   JUNK="$JUNK $@"
 }
 function cleanup {
   rm -rf $JUNK
-  if [[ $IMSPID > 0 ]]; then
-    kill -9 $IMSPID &> /dev/null
-  fi
+  # make really sure nothing is left running;
+  # apologies if this kills more than intended
+  (killall -9 tail &> /dev/null) ||:
+  (killall -9 ims &> /dev/null) ||:
+  (killall -9 txtimc &> /dev/null) ||:
 }
 trap cleanup err exit int term
+trap "" hup
 function dieifthere {
   if [[ -e $1 ]]; then
 #    echo "P5IMS ERROR $TEST: $1 exists already; \"rm $1\" to proceed with testing" >&2
@@ -53,10 +53,6 @@ anna
 .
 endofusers
 
-(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
-IMSPID=$!
-sleep 1
-
 touch $CIN1
 echo "login anna" >> $CIN1
 echo "sleep 6"  >> $CIN1
@@ -74,6 +70,9 @@ echo "vvvvvvvvvvvvvvvvvvvvv txtimc input:"
 cat $CIN2
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
+(sleep 10; echo quit) | $IMS -p $PORT -d $DB -i $PAUSE &> $LOG &
+sleep 1
+
 $TXTIMC -s localhost -p $PORT < $CIN1 &> $COUT1 &
 CLIAPID=$!
 
@@ -90,16 +89,16 @@ echo "vvvvvvvvvvvvvvvvvvvvv txtimc output:"
 cat $COUT2
 echo "^^^^^^^^^^^^^^^^^^^^^"
 
-echo "vvvvvvvvvvvvvvvvvvvvv final $DB"
-cat $DB
-echo "^^^^^^^^^^^^^^^^^^^^^"
-
 gotacklog=$(grep "ACK LOGIN anna" $COUT1 | wc -l)
 goterror=$(grep "!!! ERROR USER_ALREADY_ACTIVE anna !!!" $COUT2 | wc -l)
 
 echo "P5IMS TEST $TEST: ACK LOGIN $gotacklog"
 echo "P5IMS TEST $TEST: ERROR USER_ALREADY_ACTIVE $goterror"
 
-if [[ $gotacklog == 1 && $goterror == 1 ]]; then
-    echo "$NAME" >> $GRADEFILE
+score=0
+if [[ $gotacklog == 1 ]]; then (( score++ )); fi
+if [[ $goterror == 1 ]]; then (( score++ )); fi
+
+if [[ -v scoreFile ]]; then
+  echo "$NAME $score/2" >> $scoreFile
 fi
